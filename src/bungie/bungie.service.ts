@@ -13,16 +13,19 @@ import { BungieProfileEntity } from './bungie-profile.entity';
 import { DestinyProfileEntity } from './destiny-profile.entity';
 import { XboxAccountEntity } from 'src/xbox/xbox-account.entity';
 import { DestinyCharacterEntity } from './destiny-character.entity';
-import { Connection } from 'typeorm';
+import { Connection, Repository, getConnection } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class BungieService {
   constructor(
     private readonly httpService: HttpService,
     private readonly connection: Connection,
+    @InjectRepository(DestinyCharacterEntity)
+    private destinyCharacterRepository: Repository<DestinyCharacterEntity>,
   ) {}
 
-  async getDestinyProfile(
+  async storeDestinyProfile(
     membershipId: string,
     membershipType: BungieMembershipType,
   ) {
@@ -48,7 +51,7 @@ export class BungieService {
           membershipId: linkedProfiles.Response.bnetMembership.membershipId,
         },
       );
-      if (partnerships.Response[0].partnerType === PartnershipType.Twitch) {
+      if (partnerships?.Response[0]?.partnerType === PartnershipType.Twitch) {
         bungieProfileEntity.twitchPartnershipIdentifier =
           partnerships.Response[0].identifier;
       }
@@ -100,13 +103,76 @@ export class BungieService {
     }
     console.log(destinyProfileEntities);
     await this.createMany(destinyProfileEntities);
+  }
 
-    // getActivityHistory(config => this.bungieRequest(config), {
-    //   membershipType: character.membershipType,
-    //   destinyMembershipId: character.membershipId,
-    //   characterId: character.characterId,
-    //   count: 250,
-    // });
+  async getActivityHistoryForDestinyAccount(membershipId: string) {
+    const bnetProfile = await getConnection()
+      .createQueryBuilder()
+      .relation(DestinyProfileEntity, 'bnetProfile')
+      .of(membershipId)
+      .loadOne();
+
+    const profiles = await getConnection()
+      .createQueryBuilder()
+      .relation(BungieProfileEntity, 'profiles')
+      .of(bnetProfile)
+      .loadMany();
+
+    for (let i = 0; i < profiles.length; i++) {
+      const profile = profiles[i];
+      const characters = await getConnection()
+        .createQueryBuilder()
+        .relation(DestinyProfileEntity, 'characters')
+        .of(profile)
+        .loadMany();
+
+      for (let j = 0; j < characters.length; j++) {
+        const character = characters[j];
+
+        let page = 0;
+        let loadMoreActivities = true;
+        const dateCutOff = new Date(
+          new Date().setDate(new Date().getDate() - 30),
+        );
+        while (loadMoreActivities) {
+          const activities = await getActivityHistory(
+            config => this.bungieRequest(config),
+            {
+              membershipType: profile.membershipType,
+              destinyMembershipId: profile.membershipId,
+              characterId: character.characterId,
+              count: 250,
+              page,
+            },
+          );
+
+          for (let k = 0; k < activities.Response.activities.length; k++) {
+            const activity = activities.Response.activities[k];
+
+            console.log(
+              new Date(activity.period),
+              dateCutOff,
+              new Date(activity.period) < dateCutOff,
+            );
+            if (new Date(activity.period) < dateCutOff) {
+              loadMoreActivities = false;
+              continue;
+            }
+
+            // console.log(activity.period);
+          }
+          console.log(
+            character.characterId,
+            page,
+            activities.Response.activities.length,
+          );
+          if (activities.Response.activities.length < 250) {
+            loadMoreActivities = false;
+          }
+          page++;
+        }
+      }
+    }
   }
 
   async bungieRequest(config: HttpClientConfig) {

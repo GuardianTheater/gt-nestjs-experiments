@@ -10,7 +10,7 @@ export class BungieProfileEntity {
   @Column()
   membershipType: BungieMembershipType;
 
-  @Column()
+  @Column({ nullable: true })
   twitchPartnershipIdentifier?: string;
 
   @OneToMany(

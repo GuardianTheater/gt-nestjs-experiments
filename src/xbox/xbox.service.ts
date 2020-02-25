@@ -34,11 +34,11 @@ export class XboxService {
                 endStamp.getSeconds() + clip.durationInSeconds,
               );
               const xboxClipEntity = new XboxClipEntity();
-              const gamertagEntity = new XboxAccountEntity();
-              gamertagEntity.gamertag = gamertag;
-              gamertagEntity.xuid = clip.xuid;
+              const xboxAccountEntity = new XboxAccountEntity();
+              xboxAccountEntity.gamertag = gamertag;
+              xboxAccountEntity.xuid = clip.xuid;
               xboxClipEntity.gameClipId = clip.gameClipId;
-              xboxClipEntity.gamertag = gamertagEntity;
+              xboxClipEntity.gamertag = xboxAccountEntity;
               xboxClipEntity.scid = clip.scid;
               xboxClipEntity.thumbnailUri = clip.thumbnails.pop().uri;
               xboxClipEntity.dateRecordedRange = `[${

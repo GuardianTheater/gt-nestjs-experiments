@@ -8,13 +8,15 @@ async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const xboxService = app.get(XboxService);
   const bungieService = app.get(BungieService);
+
+  const chrisfried = '4611686018445133002';
+  const Malagate = '4611686018428388819';
+
   // xboxService.updateClipsForGamertag('chrisfried');
   // xboxService.clipCount().then(res => console.log(res));
   // xboxService.findAll().then(res => console.log(res));
-  xboxService.findAllAccounts().then(res => console.log(res));
-  // bungieService.getDestinyProfile(
-  //   '4611686018445133002',
-  //   BungieMembershipType.TigerXbox,
-  // );
+  // xboxService.findAllAccounts().then(res => console.log(res));
+  // bungieService.storeDestinyProfile(Malagate, BungieMembershipType.TigerXbox);
+  bungieService.getActivityHistoryForDestinyAccount(Malagate);
 }
 bootstrap();

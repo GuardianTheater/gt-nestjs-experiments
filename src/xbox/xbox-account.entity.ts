@@ -6,7 +6,9 @@ export class XboxAccountEntity {
   @PrimaryColumn()
   gamertag: string;
 
-  @Column()
+  @Column({
+    nullable: true,
+  })
   xuid?: string;
 
   @OneToMany(
