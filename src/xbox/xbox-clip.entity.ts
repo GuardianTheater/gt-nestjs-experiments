@@ -1,19 +1,23 @@
-import { Entity, PrimaryColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryColumn, Column, ManyToOne } from 'typeorm';
+import { XboxAccountEntity } from './xbox-account.entity';
 
 @Entity()
-export class XboxClip {
+export class XboxClipEntity {
   @PrimaryColumn()
   gameClipId: string;
 
   @Column()
-  xuid: string;
-
-  @Column()
-  @Index()
-  gamertag: string;
-
-  @Column()
   scid: string;
+
+  @ManyToOne(
+    type => XboxAccountEntity,
+    gamertag => gamertag.clips,
+    {
+      eager: true,
+      cascade: true,
+    },
+  )
+  gamertag: XboxAccountEntity;
 
   @Column('tstzrange')
   dateRecordedRange: string;

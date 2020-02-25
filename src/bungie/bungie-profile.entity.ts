@@ -1,20 +1,21 @@
-import { Entity, PrimaryColumn, Column, Index } from 'typeorm';
+import { Entity, PrimaryColumn, Column, OneToMany } from 'typeorm';
+import { DestinyProfileEntity } from './destiny-profile.entity';
+import { BungieMembershipType } from 'bungie-api-ts/user';
 
 @Entity()
-export class DestinyProfile {
+export class BungieProfileEntity {
   @PrimaryColumn()
   membershipId: string;
 
   @Column()
-  membershipType: number;
+  membershipType: BungieMembershipType;
 
   @Column()
-  displayName: string;
+  twitchPartnershipIdentifier?: string;
 
-  @Column()
-  @Index()
-  bnetMembershipId: string;
-
-  @Column()
-  twitchPartnershipIdentifier: string;
+  @OneToMany(
+    type => DestinyProfileEntity,
+    profile => profile.bnetProfile,
+  )
+  profiles: DestinyProfileEntity[];
 }

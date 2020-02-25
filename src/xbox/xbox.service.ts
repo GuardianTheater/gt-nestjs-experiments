@@ -4,8 +4,9 @@ import { map } from 'rxjs/operators';
 import { AxiosResponse } from 'axios';
 import { XboxGameClipsResponse } from './xbox.types';
 import { InjectRepository } from '@nestjs/typeorm';
-import { XboxClip } from './xbox-clip.entity';
+import { XboxClipEntity } from './xbox-clip.entity';
 import { Repository, Connection } from 'typeorm';
+import { XboxAccountEntity } from './xbox-account.entity';
 
 @Injectable()
 export class XboxService {
@@ -14,8 +15,10 @@ export class XboxService {
 
   constructor(
     private readonly httpService: HttpService,
-    @InjectRepository(XboxClip)
-    private xboxClipRespository: Repository<XboxClip>,
+    @InjectRepository(XboxClipEntity)
+    private xboxClipRespository: Repository<XboxClipEntity>,
+    @InjectRepository(XboxAccountEntity)
+    private xboxAccountRespository: Repository<XboxAccountEntity>,
     private readonly connection: Connection,
   ) {}
 
@@ -24,22 +27,24 @@ export class XboxService {
       .pipe(
         map((res: AxiosResponse<XboxGameClipsResponse>) => {
           try {
-            const xboxClips: XboxClip[] = [];
+            const xboxClips: XboxClipEntity[] = [];
             res.data.gameClips.forEach(clip => {
               const endStamp = new Date(clip.dateRecorded);
               endStamp.setSeconds(
                 endStamp.getSeconds() + clip.durationInSeconds,
               );
-              const xboxClip = new XboxClip();
-              xboxClip.gameClipId = clip.gameClipId;
-              xboxClip.xuid = clip.xuid;
-              xboxClip.gamertag = gamertag;
-              xboxClip.scid = clip.scid;
-              xboxClip.thumbnailUri = clip.thumbnails.pop().uri;
-              xboxClip.dateRecordedRange = `[${
+              const xboxClipEntity = new XboxClipEntity();
+              const gamertagEntity = new XboxAccountEntity();
+              gamertagEntity.gamertag = gamertag;
+              gamertagEntity.xuid = clip.xuid;
+              xboxClipEntity.gameClipId = clip.gameClipId;
+              xboxClipEntity.gamertag = gamertagEntity;
+              xboxClipEntity.scid = clip.scid;
+              xboxClipEntity.thumbnailUri = clip.thumbnails.pop().uri;
+              xboxClipEntity.dateRecordedRange = `[${
                 clip.dateRecorded
               }, ${endStamp.toISOString()}]`;
-              xboxClips.push(xboxClip);
+              xboxClips.push(xboxClipEntity);
             });
             this.xboxClipRespository
               .find({ where: { gamertag: gamertag } })
@@ -77,11 +82,15 @@ export class XboxService {
     return this.xboxClipRespository.count();
   }
 
-  findAll(): Promise<XboxClip[]> {
+  findAll(): Promise<XboxClipEntity[]> {
     return this.xboxClipRespository.find();
   }
 
-  async createMany(xboxClips: XboxClip[]) {
+  findAllAccounts(): Promise<XboxAccountEntity[]> {
+    return this.xboxAccountRespository.find();
+  }
+
+  async createMany(xboxClips: XboxClipEntity[]) {
     const queryRunner = this.connection.createQueryRunner();
 
     await queryRunner.connect();

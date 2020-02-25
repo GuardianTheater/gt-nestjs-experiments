@@ -4,8 +4,12 @@ import { AppService } from './app.service';
 import { XboxService } from './xbox/xbox.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { XboxClip } from './xbox/xbox-clip.entity';
+import { XboxClipEntity } from './xbox/xbox-clip.entity';
 import { BungieService } from './bungie/bungie.service';
+import { XboxAccountEntity } from './xbox/xbox-account.entity';
+import { BungieProfileEntity } from './bungie/bungie-profile.entity';
+import { DestinyProfileEntity } from './bungie/destiny-profile.entity';
+import { DestinyCharacterEntity } from './bungie/destiny-character.entity';
 
 @Module({
   imports: [
@@ -18,14 +22,26 @@ import { BungieService } from './bungie/bungie.service';
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
-      entities: [XboxClip],
+      entities: [
+        XboxClipEntity,
+        XboxAccountEntity,
+        BungieProfileEntity,
+        DestinyProfileEntity,
+        DestinyCharacterEntity,
+      ],
       synchronize: true,
       ssl: {
         ca: process.env.DATABASE_CERT,
         rejectUnauthorized: false,
       },
     }),
-    TypeOrmModule.forFeature([XboxClip]),
+    TypeOrmModule.forFeature([
+      XboxClipEntity,
+      XboxAccountEntity,
+      BungieProfileEntity,
+      DestinyProfileEntity,
+      DestinyCharacterEntity,
+    ]),
   ],
   controllers: [AppController],
   providers: [AppService, XboxService, BungieService],
