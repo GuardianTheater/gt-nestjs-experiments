@@ -10,6 +10,8 @@ import { XboxAccountEntity } from './xbox/xbox-account.entity';
 import { BungieProfileEntity } from './bungie/bungie-profile.entity';
 import { DestinyProfileEntity } from './bungie/destiny-profile.entity';
 import { DestinyCharacterEntity } from './bungie/destiny-character.entity';
+import { PgcrEntity } from './bungie/pgcr.entity';
+import { PgcrEntryEntity } from './bungie/pgcr-entry.entity';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { DestinyCharacterEntity } from './bungie/destiny-character.entity';
         BungieProfileEntity,
         DestinyProfileEntity,
         DestinyCharacterEntity,
+        PgcrEntity,
+        PgcrEntryEntity,
       ],
       synchronize: true,
       ssl: {
@@ -41,6 +45,8 @@ import { DestinyCharacterEntity } from './bungie/destiny-character.entity';
       BungieProfileEntity,
       DestinyProfileEntity,
       DestinyCharacterEntity,
+      PgcrEntity,
+      PgcrEntryEntity,
     ]),
   ],
   controllers: [AppController],

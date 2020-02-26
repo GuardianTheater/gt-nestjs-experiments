@@ -6,6 +6,7 @@ import {
   BungieMembershipType,
   getLinkedProfiles,
   getActivityHistory,
+  getPostGameCarnageReport,
 } from 'bungie-api-ts/destiny2';
 import { getPartnerships, PartnershipType } from 'bungie-api-ts/user';
 import { map } from 'rxjs/operators';
@@ -15,6 +16,8 @@ import { XboxAccountEntity } from 'src/xbox/xbox-account.entity';
 import { DestinyCharacterEntity } from './destiny-character.entity';
 import { Connection, Repository, getConnection } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PgcrEntity } from './pgcr.entity';
+import { PgcrEntryEntity } from './pgcr-entry.entity';
 
 @Injectable()
 export class BungieService {
@@ -134,6 +137,7 @@ export class BungieService {
         const dateCutOff = new Date(
           new Date().setDate(new Date().getDate() - 30),
         );
+        const pgcrEntities = [];
         while (loadMoreActivities) {
           const activities = await getActivityHistory(
             config => this.bungieRequest(config),
@@ -149,29 +153,87 @@ export class BungieService {
           for (let k = 0; k < activities.Response.activities.length; k++) {
             const activity = activities.Response.activities[k];
 
-            console.log(
-              new Date(activity.period),
-              dateCutOff,
-              new Date(activity.period) < dateCutOff,
-            );
             if (new Date(activity.period) < dateCutOff) {
               loadMoreActivities = false;
-              continue;
+              break;
             }
 
-            // console.log(activity.period);
+            const pgcr = await getPostGameCarnageReport(
+              config => this.bungieRequest(config),
+              {
+                activityId: activity.activityDetails.instanceId,
+              },
+            );
+
+            const pgcrEntity = new PgcrEntity();
+            pgcrEntities.push(pgcrEntity);
+
+            pgcrEntity.instanceId = pgcr.Response.activityDetails.instanceId;
+            pgcrEntity.membershipType =
+              pgcr.Response.activityDetails.membershipType;
+            pgcrEntity.period = pgcr.Response.period;
+            pgcrEntity.entries = [];
+
+            pgcr.Response.entries.forEach(entry => {
+              const entryEntity = new PgcrEntryEntity();
+              pgcrEntity.entries.push(entryEntity);
+
+              entryEntity.profile = new DestinyProfileEntity();
+
+              entryEntity.profile.displayName =
+                entry.player.destinyUserInfo.displayName;
+              entryEntity.profile.membershipId =
+                entry.player.destinyUserInfo.membershipId;
+              entryEntity.profile.membershipType =
+                entry.player.destinyUserInfo.membershipType;
+
+              entryEntity.fireteamId =
+                entry.values.fireteamId.basic.displayValue;
+
+              let startTime = new Date(pgcrEntity.period);
+              startTime = new Date(
+                startTime.setSeconds(
+                  startTime.getSeconds() +
+                    entry.values.startSeconds.basic.value,
+                ),
+              );
+              let endTime = new Date(pgcrEntity.period);
+              endTime = new Date(
+                endTime.setSeconds(
+                  endTime.getSeconds() +
+                    entry.values.startSeconds.basic.value +
+                    entry.values.timePlayedSeconds.basic.value,
+                ),
+              );
+
+              entryEntity.timePlayedRange = `[${startTime.toISOString()}, ${endTime.toISOString()}]`;
+            });
           }
-          console.log(
-            character.characterId,
-            page,
-            activities.Response.activities.length,
-          );
           if (activities.Response.activities.length < 250) {
             loadMoreActivities = false;
           }
           page++;
         }
+        await this.createPgcrs(pgcrEntities);
       }
+    }
+  }
+
+  async createPgcrs(pgcrEntities: PgcrEntity[]) {
+    const queryRunner = this.connection.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      for (let i = 0; i < pgcrEntities.length; i++) {
+        await queryRunner.manager.save(pgcrEntities[i]);
+      }
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      console.log(err);
+      await queryRunner.rollbackTransaction();
+    } finally {
+      await queryRunner.release();
     }
   }
 

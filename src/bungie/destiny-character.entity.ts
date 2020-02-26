@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryColumn, ManyToOne, OneToMany } from 'typeorm';
 import { DestinyProfileEntity } from './destiny-profile.entity';
 
 @Entity()

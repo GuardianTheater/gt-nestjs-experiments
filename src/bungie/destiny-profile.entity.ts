@@ -10,6 +10,7 @@ import {
 import { DestinyCharacterEntity } from './destiny-character.entity';
 import { BungieProfileEntity } from './bungie-profile.entity';
 import { XboxAccountEntity } from 'src/xbox/xbox-account.entity';
+import { PgcrEntryEntity } from './pgcr-entry.entity';
 
 @Entity()
 export class DestinyProfileEntity {
@@ -26,16 +27,17 @@ export class DestinyProfileEntity {
     cascade: true,
   })
   @JoinColumn()
-  xboxAccount: XboxAccountEntity;
+  xboxAccount?: XboxAccountEntity;
 
   @ManyToOne(
     type => BungieProfileEntity,
     profile => profile.profiles,
     {
       cascade: true,
+      nullable: true,
     },
   )
-  bnetProfile: BungieProfileEntity;
+  bnetProfile?: BungieProfileEntity;
 
   @OneToMany(
     type => DestinyCharacterEntity,
@@ -44,5 +46,11 @@ export class DestinyProfileEntity {
       cascade: true,
     },
   )
-  characters: DestinyCharacterEntity[];
+  characters?: DestinyCharacterEntity[];
+
+  @OneToMany(
+    type => PgcrEntryEntity,
+    entry => entry.profile,
+  )
+  entries?: PgcrEntryEntity[];
 }
