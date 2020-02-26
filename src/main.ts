@@ -16,7 +16,11 @@ async function bootstrap() {
   // xboxService.clipCount().then(res => console.log(res));
   // xboxService.findAll().then(res => console.log(res));
   // xboxService.findAllAccounts().then(res => console.log(res));
-  // bungieService.storeDestinyProfile(Malagate, BungieMembershipType.TigerXbox);
-  bungieService.getActivityHistoryForDestinyAccount(Malagate);
+  // await bungieService.storeDestinyProfile(
+  //   Malagate,
+  //   BungieMembershipType.TigerXbox,
+  // );
+  // await bungieService.getActivityHistoryForDestinyAccount(Malagate);
+  await bungieService.findAllActivitiesForAccount(Malagate);
 }
 bootstrap();

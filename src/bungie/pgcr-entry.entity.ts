@@ -1,29 +1,31 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, Column } from 'typeorm';
+import { Entity, ManyToOne, Column, PrimaryColumn } from 'typeorm';
 import { PgcrEntity } from './pgcr.entity';
 import { DestinyProfileEntity } from './destiny-profile.entity';
 
 @Entity()
 export class PgcrEntryEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column('tstzrange')
-  timePlayedRange: string;
-
-  @ManyToOne(
-    type => PgcrEntity,
-    pgcr => pgcr.entries,
-  )
-  instance: PgcrEntity;
-
   @ManyToOne(
     type => DestinyProfileEntity,
     profile => profile.entries,
     {
       cascade: true,
+      primary: true,
     },
   )
   profile: DestinyProfileEntity;
+
+  @ManyToOne(
+    type => PgcrEntity,
+    pgcr => pgcr.entries,
+    {
+      primary: true,
+      eager: true,
+    },
+  )
+  instance: PgcrEntity;
+
+  @Column('tstzrange')
+  timePlayedRange: string;
 
   @Column({
     nullable: true,

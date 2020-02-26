@@ -137,7 +137,7 @@ export class BungieService {
         const dateCutOff = new Date(
           new Date().setDate(new Date().getDate() - 30),
         );
-        const pgcrEntities = [];
+
         while (loadMoreActivities) {
           const activities = await getActivityHistory(
             config => this.bungieRequest(config),
@@ -149,6 +149,7 @@ export class BungieService {
               page,
             },
           );
+          console.log('fetched activities for', character.characterId);
 
           for (let k = 0; k < activities.Response.activities.length; k++) {
             const activity = activities.Response.activities[k];
@@ -158,55 +159,61 @@ export class BungieService {
               break;
             }
 
-            const pgcr = await getPostGameCarnageReport(
-              config => this.bungieRequest(config),
-              {
-                activityId: activity.activityDetails.instanceId,
-              },
-            );
-
-            const pgcrEntity = new PgcrEntity();
-            pgcrEntities.push(pgcrEntity);
-
-            pgcrEntity.instanceId = pgcr.Response.activityDetails.instanceId;
-            pgcrEntity.membershipType =
-              pgcr.Response.activityDetails.membershipType;
-            pgcrEntity.period = pgcr.Response.period;
-            pgcrEntity.entries = [];
-
-            pgcr.Response.entries.forEach(entry => {
-              const entryEntity = new PgcrEntryEntity();
-              pgcrEntity.entries.push(entryEntity);
-
-              entryEntity.profile = new DestinyProfileEntity();
-
-              entryEntity.profile.displayName =
-                entry.player.destinyUserInfo.displayName;
-              entryEntity.profile.membershipId =
-                entry.player.destinyUserInfo.membershipId;
-              entryEntity.profile.membershipType =
-                entry.player.destinyUserInfo.membershipType;
-
-              entryEntity.fireteamId =
-                entry.values.fireteamId.basic.displayValue;
-
-              let startTime = new Date(pgcrEntity.period);
-              startTime = new Date(
-                startTime.setSeconds(
-                  startTime.getSeconds() +
-                    entry.values.startSeconds.basic.value,
-                ),
-              );
-              let endTime = new Date(pgcrEntity.period);
-              endTime = new Date(
-                endTime.setSeconds(
-                  endTime.getSeconds() +
-                    entry.values.startSeconds.basic.value +
-                    entry.values.timePlayedSeconds.basic.value,
-                ),
+            getPostGameCarnageReport(config => this.bungieRequest(config), {
+              activityId: activity.activityDetails.instanceId,
+            }).then(pgcr => {
+              console.log(
+                'fetched pgcr for',
+                activity.activityDetails.instanceId,
               );
 
-              entryEntity.timePlayedRange = `[${startTime.toISOString()}, ${endTime.toISOString()}]`;
+              const pgcrEntity = new PgcrEntity();
+
+              pgcrEntity.instanceId = pgcr.Response.activityDetails.instanceId;
+              pgcrEntity.membershipType =
+                pgcr.Response.activityDetails.membershipType;
+              pgcrEntity.period = pgcr.Response.period;
+              pgcrEntity.entries = [];
+
+              pgcr.Response.entries.forEach(entry => {
+                if (entry.player.destinyUserInfo.displayName) {
+                  const entryEntity = new PgcrEntryEntity();
+                  pgcrEntity.entries.push(entryEntity);
+
+                  entryEntity.profile = new DestinyProfileEntity();
+
+                  entryEntity.profile.displayName =
+                    entry.player.destinyUserInfo.displayName;
+                  entryEntity.profile.membershipId =
+                    entry.player.destinyUserInfo.membershipId;
+                  entryEntity.profile.membershipType =
+                    entry.player.destinyUserInfo.membershipType;
+                  entryEntity.fireteamId =
+                    entry.values.fireteamId.basic.displayValue;
+
+                  let startTime = new Date(pgcrEntity.period);
+                  startTime = new Date(
+                    startTime.setSeconds(
+                      startTime.getSeconds() +
+                        entry.values.startSeconds.basic.value,
+                    ),
+                  );
+                  let endTime = new Date(pgcrEntity.period);
+                  endTime = new Date(
+                    endTime.setSeconds(
+                      endTime.getSeconds() +
+                        entry.values.startSeconds.basic.value +
+                        entry.values.timePlayedSeconds.basic.value,
+                    ),
+                  );
+
+                  entryEntity.timePlayedRange = `[${startTime.toISOString()}, ${endTime.toISOString()}]`;
+                }
+              });
+
+              this.createPgcrs([pgcrEntity]).then(res =>
+                console.log('saved pgcr', pgcrEntity.instanceId),
+              );
             });
           }
           if (activities.Response.activities.length < 250) {
@@ -214,7 +221,6 @@ export class BungieService {
           }
           page++;
         }
-        await this.createPgcrs(pgcrEntities);
       }
     }
   }
@@ -234,6 +240,44 @@ export class BungieService {
       await queryRunner.rollbackTransaction();
     } finally {
       await queryRunner.release();
+    }
+  }
+
+  async findAllActivitiesForAccount(membershipId: string) {
+    const bnetProfile = await getConnection()
+      .createQueryBuilder()
+      .relation(DestinyProfileEntity, 'bnetProfile')
+      .of(membershipId)
+      .loadOne();
+
+    const profiles = await getConnection()
+      .createQueryBuilder()
+      .relation(BungieProfileEntity, 'profiles')
+      .of(bnetProfile)
+      .loadMany();
+
+    console.log(profiles);
+
+    for (let i = 0; i < profiles.length; i++) {
+      const profile = profiles[i];
+      const entries = await getConnection()
+        .createQueryBuilder()
+        .relation(DestinyProfileEntity, 'entries')
+        .of(profile)
+        .loadMany();
+
+      console.log(entries);
+
+      // for (let j = 0; j < entries.length; j++) {
+      //   const entry = entries[j];
+      //   const pgcr = await getConnection()
+      //     .createQueryBuilder()
+      //     .relation(PgcrEntryEntity, 'instance')
+      //     .of(entry)
+      //     .loadOne();
+
+      //   console.log(pgcr);
+      // }
     }
   }
 
