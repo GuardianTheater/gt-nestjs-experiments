@@ -21,6 +21,8 @@ import { PgcrEntryEntity } from './pgcr-entry.entity';
 
 @Injectable()
 export class BungieService {
+  daysOfHistory = parseInt(process.env.DAYS_OF_HISTORY, 10);
+
   constructor(
     private readonly httpService: HttpService,
     private readonly connection: Connection,
@@ -59,7 +61,6 @@ export class BungieService {
           partnerships.Response[0].identifier;
       }
     }
-    const destinyProfileEntities = [];
     for (let i = 0; i < linkedProfiles.Response.profiles.length; i++) {
       const profile = linkedProfiles.Response.profiles[i];
 
@@ -70,9 +71,8 @@ export class BungieService {
       destinyProfileEntity.membershipType = profile.membershipType;
 
       if (profile.membershipType === BungieMembershipType.TigerXbox) {
-        const xboxAccountEntity = new XboxAccountEntity();
-        xboxAccountEntity.gamertag = profile.displayName;
-        destinyProfileEntity.xboxAccount = xboxAccountEntity;
+        destinyProfileEntity.xboxAccount = new XboxAccountEntity();
+        destinyProfileEntity.xboxAccount.gamertag = profile.displayName;
       }
 
       const profileWithCharacters = await getProfile(
@@ -102,10 +102,8 @@ export class BungieService {
         destinyProfileEntity.characters.push(destinyCharacterEntity);
       }
 
-      destinyProfileEntities.push(destinyProfileEntity);
+      await getConnection().manager.save(destinyProfileEntity);
     }
-    console.log(destinyProfileEntities);
-    await this.createMany(destinyProfileEntities);
   }
 
   async getActivityHistoryForDestinyAccount(membershipId: string) {
@@ -114,12 +112,14 @@ export class BungieService {
       .relation(DestinyProfileEntity, 'bnetProfile')
       .of(membershipId)
       .loadOne();
+    console.log('loaded bnet profile for', membershipId);
 
     const profiles = await getConnection()
       .createQueryBuilder()
       .relation(BungieProfileEntity, 'profiles')
       .of(bnetProfile)
       .loadMany();
+    console.log('loaded destiny profiles for', bnetProfile.membershipId);
 
     for (let i = 0; i < profiles.length; i++) {
       const profile = profiles[i];
@@ -128,6 +128,7 @@ export class BungieService {
         .relation(DestinyProfileEntity, 'characters')
         .of(profile)
         .loadMany();
+      console.log('loaded characters for', profile.membershipId);
 
       for (let j = 0; j < characters.length; j++) {
         const character = characters[j];
@@ -135,7 +136,7 @@ export class BungieService {
         let page = 0;
         let loadMoreActivities = true;
         const dateCutOff = new Date(
-          new Date().setDate(new Date().getDate() - 30),
+          new Date().setDate(new Date().getDate() - this.daysOfHistory),
         );
 
         while (loadMoreActivities) {
@@ -188,8 +189,9 @@ export class BungieService {
                     entry.player.destinyUserInfo.membershipId;
                   entryEntity.profile.membershipType =
                     entry.player.destinyUserInfo.membershipType;
-                  entryEntity.fireteamId =
-                    entry.values.fireteamId.basic.displayValue;
+                  if (entry.values.team) {
+                    entryEntity.team = entry.values.team.basic.value;
+                  }
 
                   let startTime = new Date(pgcrEntity.period);
                   startTime = new Date(
@@ -211,9 +213,7 @@ export class BungieService {
                 }
               });
 
-              this.createPgcrs([pgcrEntity]).then(res =>
-                console.log('saved pgcr', pgcrEntity.instanceId),
-              );
+              getConnection().manager.save(pgcrEntity);
             });
           }
           if (activities.Response.activities.length < 250) {
@@ -225,21 +225,107 @@ export class BungieService {
     }
   }
 
-  async createPgcrs(pgcrEntities: PgcrEntity[]) {
-    const queryRunner = this.connection.createQueryRunner();
+  async addXboxAccounts() {
+    const profiles = await getConnection()
+      .createQueryBuilder(DestinyProfileEntity, 'profile')
+      .leftJoinAndSelect('profile.xboxAccount', 'xboxAccount')
+      .where('profile.membershipType = :membershipType', {
+        membershipType: BungieMembershipType.TigerXbox,
+      })
+      .getMany();
 
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
-      for (let i = 0; i < pgcrEntities.length; i++) {
-        await queryRunner.manager.save(pgcrEntities[i]);
+    for (let i = 0; i < profiles.length; i++) {
+      const profile = profiles[i];
+      console.log(profile);
+      if (!profile.xboxAccount) {
+        profile.xboxAccount = new XboxAccountEntity();
+        profile.xboxAccount.gamertag = profile.displayName;
+
+        getConnection().manager.save(profile);
       }
-      await queryRunner.commitTransaction();
-    } catch (err) {
-      console.log(err);
-      await queryRunner.rollbackTransaction();
-    } finally {
-      await queryRunner.release();
+    }
+  }
+
+  async addTwitchPartnerships() {
+    const profiles = await getConnection()
+      .createQueryBuilder(DestinyProfileEntity, 'profile')
+      .where('profile.bnetProfile IS NULL')
+      .getMany();
+
+    for (let i = 0; i < profiles.length; i++) {
+      const existingProfile = profiles[i];
+      getLinkedProfiles(config => this.bungieRequest(config), {
+        membershipId: existingProfile.membershipId,
+        membershipType: existingProfile.membershipType,
+        getAllMemberships: true,
+      }).then(linkedProfiles => {
+        console.log('got linked profiles');
+        if (linkedProfiles?.Response?.bnetMembership?.membershipId) {
+          const bungieProfileEntity = new BungieProfileEntity();
+          bungieProfileEntity.membershipId =
+            linkedProfiles.Response.bnetMembership.membershipId;
+          bungieProfileEntity.membershipType =
+            linkedProfiles.Response.bnetMembership.membershipType;
+
+          getPartnerships(config => this.bungieRequest(config), {
+            membershipId: linkedProfiles.Response.bnetMembership.membershipId,
+          }).then(partnerships => {
+            console.log('got partnerships');
+
+            if (
+              partnerships?.Response[0]?.partnerType === PartnershipType.Twitch
+            ) {
+              bungieProfileEntity.twitchPartnershipIdentifier =
+                partnerships.Response[0].identifier;
+            }
+            for (
+              let j = 0;
+              j < linkedProfiles?.Response?.profiles?.length;
+              j++
+            ) {
+              const profile = linkedProfiles.Response.profiles[j];
+
+              const destinyProfileEntity = new DestinyProfileEntity();
+              destinyProfileEntity.bnetProfile = bungieProfileEntity;
+              destinyProfileEntity.displayName = profile.displayName;
+              destinyProfileEntity.membershipId = profile.membershipId;
+              destinyProfileEntity.membershipType = profile.membershipType;
+
+              getProfile(config => this.bungieRequest(config), {
+                components: [DestinyComponentType.Characters],
+                destinyMembershipId: profile.membershipId,
+                membershipType: profile.membershipType,
+              }).then(profileWithCharacters => {
+                console.log('got profile');
+
+                destinyProfileEntity.characters = [];
+
+                for (
+                  let k = 0;
+                  k <
+                  Object.keys(profileWithCharacters.Response.characters.data)
+                    .length;
+                  k++
+                ) {
+                  const key = Object.keys(
+                    profileWithCharacters.Response.characters.data,
+                  )[k];
+                  const character =
+                    profileWithCharacters.Response.characters.data[key];
+
+                  const destinyCharacterEntity = new DestinyCharacterEntity();
+                  destinyCharacterEntity.characterId = character.characterId;
+
+                  destinyProfileEntity.characters.push(destinyCharacterEntity);
+                }
+
+                getConnection().manager.save(destinyProfileEntity);
+                console.log('saved');
+              });
+            }
+          });
+        }
+      });
     }
   }
 
@@ -268,17 +354,85 @@ export class BungieService {
 
       console.log(entries);
 
-      // for (let j = 0; j < entries.length; j++) {
-      //   const entry = entries[j];
-      //   const pgcr = await getConnection()
-      //     .createQueryBuilder()
-      //     .relation(PgcrEntryEntity, 'instance')
-      //     .of(entry)
-      //     .loadOne();
+      for (let j = 0; j < entries.length; j++) {
+        const entry = entries[j];
+        const pgcr = await getConnection()
+          .createQueryBuilder()
+          .relation(PgcrEntryEntity, 'instance')
+          .of(entry)
+          .loadOne();
 
-      //   console.log(pgcr);
-      // }
+        console.log(pgcr);
+      }
     }
+  }
+
+  async findAllPgcrsForProfile(membershipId: string) {
+    const pgcrs = await getConnection()
+      .createQueryBuilder(DestinyProfileEntity, 'profile')
+      .leftJoinAndSelect('profile.entries', 'entry')
+      .leftJoinAndSelect('entry.instance', 'pgcr')
+      .leftJoinAndSelect('pgcr.entries', 'pgcrentry')
+      .leftJoinAndSelect('pgcrentry.profile', 'pgcrprofile')
+      .where('profile.membershipId = :membershipId', { membershipId })
+      .getOne();
+
+    return pgcrs;
+  }
+
+  async findAllEncounteredPlayers(membershipId: string) {
+    const profile = await getConnection()
+      .createQueryBuilder(DestinyProfileEntity, 'profile')
+      .leftJoinAndSelect('profile.entries', 'entry')
+      .leftJoinAndSelect('entry.instance', 'pgcr')
+      .leftJoinAndSelect('pgcr.entries', 'pgcrentry')
+      .leftJoinAndSelect('pgcrentry.profile', 'pgcrprofile')
+      .leftJoinAndSelect('pgcrprofile.bnetProfile', 'bnetProfile')
+      .where('profile.membershipId = :membershipId', { membershipId })
+      .getOne();
+
+    let players: DestinyProfileEntity[] = [];
+
+    for (let i = 0; i < profile.entries.length; i++) {
+      const pgcr = profile.entries[i].instance;
+
+      for (let j = 0; j < pgcr.entries.length; j++) {
+        const player = pgcr.entries[j].profile;
+        players.push(player);
+      }
+    }
+
+    players = Array.from(
+      new Set(players.map(player => player.membershipId)),
+    ).map(id => {
+      return players.find(player => player.membershipId === id);
+    });
+    console.log(players);
+  }
+
+  async findAllEncounteredClips(membershipId: string) {
+    const pgcrs = await getConnection()
+      .createQueryBuilder(DestinyProfileEntity, 'profile')
+      .leftJoinAndSelect('profile.entries', 'entry')
+      .leftJoinAndSelect('entry.instance', 'pgcr')
+      .leftJoinAndSelect('pgcr.entries', 'pgcrentry')
+      .leftJoinAndSelect('pgcrentry.profile', 'pgcrprofile')
+      .leftJoinAndSelect('pgcrprofile.xboxAccount', 'pgcrxbox')
+      .leftJoinAndSelect('pgcrxbox.clips', 'clip')
+      .where(
+        'profile.membershipId = :membershipId AND entry.timePlayedRange && clip.dateRecordedRange',
+        { membershipId },
+      )
+      .orderBy('')
+      .getOne();
+
+    pgcrs?.entries?.forEach(entry => {
+      entry.instance?.entries?.forEach(player => {
+        player.profile?.xboxAccount?.clips?.forEach(clip => {
+          console.log(player, clip);
+        });
+      });
+    });
   }
 
   async bungieRequest(config: HttpClientConfig) {
@@ -292,23 +446,5 @@ export class BungieService {
       .request(requestConfig)
       .pipe(map(res => res.data))
       .toPromise();
-  }
-
-  async createMany(destinyProfileEntities: DestinyProfileEntity[]) {
-    const queryRunner = this.connection.createQueryRunner();
-
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
-      for (let i = 0; i < destinyProfileEntities.length; i++) {
-        await queryRunner.manager.save(destinyProfileEntities[i]);
-      }
-      await queryRunner.commitTransaction();
-    } catch (err) {
-      console.log(err);
-      await queryRunner.rollbackTransaction();
-    } finally {
-      await queryRunner.release();
-    }
   }
 }

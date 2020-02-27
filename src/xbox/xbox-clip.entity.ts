@@ -9,15 +9,18 @@ export class XboxClipEntity {
   @Column()
   scid: string;
 
+  @Column()
+  xuid: string;
+
   @ManyToOne(
-    type => XboxAccountEntity,
-    gamertag => gamertag.clips,
+    () => XboxAccountEntity,
+    xboxAccount => xboxAccount.clips,
     {
       eager: true,
       cascade: true,
     },
   )
-  gamertag: XboxAccountEntity;
+  xboxAccount: XboxAccountEntity;
 
   @Column('tstzrange')
   dateRecordedRange: string;

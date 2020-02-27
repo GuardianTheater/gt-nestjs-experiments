@@ -14,7 +14,7 @@ export class BungieProfileEntity {
   twitchPartnershipIdentifier?: string;
 
   @OneToMany(
-    type => DestinyProfileEntity,
+    () => DestinyProfileEntity,
     profile => profile.bnetProfile,
   )
   profiles: DestinyProfileEntity[];

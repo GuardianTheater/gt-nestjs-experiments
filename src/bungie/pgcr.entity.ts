@@ -14,7 +14,7 @@ export class PgcrEntity {
   period: string;
 
   @OneToMany(
-    type => PgcrEntryEntity,
+    () => PgcrEntryEntity,
     entry => entry.instance,
     {
       cascade: true,

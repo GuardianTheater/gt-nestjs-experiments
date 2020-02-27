@@ -6,14 +6,14 @@ export class XboxAccountEntity {
   @PrimaryColumn()
   gamertag: string;
 
-  @Column({
-    nullable: true,
-  })
-  xuid?: string;
-
   @OneToMany(
-    type => XboxClipEntity,
-    clip => clip.gamertag,
+    () => XboxClipEntity,
+    clip => clip.xboxAccount,
   )
   clips: XboxClipEntity[];
+
+  @Column('timestamptz', {
+    nullable: true,
+  })
+  lastClipCheck?: string;
 }

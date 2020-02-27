@@ -1,11 +1,11 @@
-import { Entity, ManyToOne, Column, PrimaryColumn } from 'typeorm';
+import { Entity, ManyToOne, Column } from 'typeorm';
 import { PgcrEntity } from './pgcr.entity';
 import { DestinyProfileEntity } from './destiny-profile.entity';
 
 @Entity()
 export class PgcrEntryEntity {
   @ManyToOne(
-    type => DestinyProfileEntity,
+    () => DestinyProfileEntity,
     profile => profile.entries,
     {
       cascade: true,
@@ -15,7 +15,7 @@ export class PgcrEntryEntity {
   profile: DestinyProfileEntity;
 
   @ManyToOne(
-    type => PgcrEntity,
+    () => PgcrEntity,
     pgcr => pgcr.entries,
     {
       primary: true,
@@ -30,5 +30,5 @@ export class PgcrEntryEntity {
   @Column({
     nullable: true,
   })
-  fireteamId?: string;
+  team?: number;
 }

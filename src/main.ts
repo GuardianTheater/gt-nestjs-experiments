@@ -3,11 +3,15 @@ import { AppModule } from './app.module';
 import { XboxService } from './xbox/xbox.service';
 import { BungieService } from './bungie/bungie.service';
 import { BungieMembershipType } from 'bungie-api-ts/user';
+import { TwitchService } from './twitch/twitch.service';
+import { MixerService } from './mixer/mixer.service';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const xboxService = app.get(XboxService);
   const bungieService = app.get(BungieService);
+  const twitchService = app.get(TwitchService);
+  const mixerService = app.get(MixerService);
 
   const chrisfried = '4611686018445133002';
   const Malagate = '4611686018428388819';
@@ -20,7 +24,30 @@ async function bootstrap() {
   //   Malagate,
   //   BungieMembershipType.TigerXbox,
   // );
-  // await bungieService.getActivityHistoryForDestinyAccount(Malagate);
-  await bungieService.findAllActivitiesForAccount(Malagate);
+  // await bungieService.getActivityHistoryForDestinyAccount(chrisfried);
+  // await bungieService.addXboxAccounts();
+  // await bungieService.addTwitchPartnerships();
+  // await xboxService.updateClipsForAllAccounts();
+  // await bungieService.findAllActivitiesForAccount(chrisfried);
+  // await bungieService
+  //   .findAllPgcrsForProfile(chrisfried)
+  //   .then(res => console.log(res));
+  // await bungieService.findAllEncounteredPlayers(chrisfried);
+  // await bungieService.findAllEncounteredClips(Malagate);
+  // await twitchService
+  //   .getUsersFromLogin('realkraftyy')
+  //   .then(res => console.log(res.data.data[0]));
+  // await twitchService
+  //   .getClips('67650991')
+  //   .then(res => console.log(res.data.data));
+  // await twitchService
+  //   .getVideos('67650991')
+  //   .then(res => console.log(res.data.data));
+  // await mixerService
+  //   .searchUser('TokenGaming')
+  //   .then(res => console.log(res.data[0]));
+  await mixerService
+    .getChannelRecordings(50929101)
+    .then(res => console.log(res.data[0]));
 }
 bootstrap();

@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryColumn, ManyToOne } from 'typeorm';
 import { DestinyProfileEntity } from './destiny-profile.entity';
 
 @Entity()
@@ -7,7 +7,7 @@ export class DestinyCharacterEntity {
   characterId: string;
 
   @ManyToOne(
-    type => DestinyProfileEntity,
+    () => DestinyProfileEntity,
     profile => profile.characters,
   )
   profile: DestinyProfileEntity;

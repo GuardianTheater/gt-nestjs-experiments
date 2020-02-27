@@ -12,6 +12,8 @@ import { DestinyProfileEntity } from './bungie/destiny-profile.entity';
 import { DestinyCharacterEntity } from './bungie/destiny-character.entity';
 import { PgcrEntity } from './bungie/pgcr.entity';
 import { PgcrEntryEntity } from './bungie/pgcr-entry.entity';
+import { TwitchService } from './twitch/twitch.service';
+import { MixerService } from './mixer/mixer.service';
 
 @Module({
   imports: [
@@ -50,6 +52,6 @@ import { PgcrEntryEntity } from './bungie/pgcr-entry.entity';
     ]),
   ],
   controllers: [AppController],
-  providers: [AppService, XboxService, BungieService],
+  providers: [AppService, XboxService, BungieService, TwitchService, MixerService],
 })
 export class AppModule {}

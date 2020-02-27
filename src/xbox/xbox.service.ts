@@ -5,13 +5,14 @@ import { AxiosResponse } from 'axios';
 import { XboxGameClipsResponse } from './xbox.types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { XboxClipEntity } from './xbox-clip.entity';
-import { Repository, Connection } from 'typeorm';
+import { Repository, Connection, getConnection, getRepository } from 'typeorm';
 import { XboxAccountEntity } from './xbox-account.entity';
 
 @Injectable()
 export class XboxService {
   titleId = 144389848;
   pcTitleId = 1762047744;
+  daysOfHistory = parseInt(process.env.DAYS_OF_HISTORY, 10);
 
   constructor(
     private readonly httpService: HttpService,
@@ -22,60 +23,65 @@ export class XboxService {
     private readonly connection: Connection,
   ) {}
 
-  updateClipsForGamertag(gamertag: string) {
-    this.fetchClipsFromXRU(gamertag)
-      .pipe(
-        map((res: AxiosResponse<XboxGameClipsResponse>) => {
-          try {
-            const xboxClips: XboxClipEntity[] = [];
-            res.data.gameClips.forEach(clip => {
-              const endStamp = new Date(clip.dateRecorded);
-              endStamp.setSeconds(
-                endStamp.getSeconds() + clip.durationInSeconds,
-              );
-              const xboxClipEntity = new XboxClipEntity();
-              const xboxAccountEntity = new XboxAccountEntity();
-              xboxAccountEntity.gamertag = gamertag;
-              xboxAccountEntity.xuid = clip.xuid;
-              xboxClipEntity.gameClipId = clip.gameClipId;
-              xboxClipEntity.gamertag = xboxAccountEntity;
-              xboxClipEntity.scid = clip.scid;
-              xboxClipEntity.thumbnailUri = clip.thumbnails.pop().uri;
-              xboxClipEntity.dateRecordedRange = `[${
-                clip.dateRecorded
-              }, ${endStamp.toISOString()}]`;
-              xboxClips.push(xboxClipEntity);
-            });
-            this.xboxClipRespository
-              .find({ where: { gamertag: gamertag } })
-              .then(oldClips => {
-                oldClips.forEach(oldClip => {
-                  let match = false;
-                  xboxClips.some(newClip => {
-                    if (newClip.gameClipId === oldClip.gameClipId) {
-                      match = true;
-                      return true;
-                    }
-                  });
-                  if (!match) {
-                    this.xboxClipRespository.delete(oldClip.gameClipId);
-                  }
-                });
-              });
-            this.createMany(xboxClips);
-          } catch (e) {
-            console.log(e);
+  async updateClipsForGamertag(gamertag: string) {
+    const xboxAccount = await this.xboxAccountRespository.findOne(gamertag);
+    xboxAccount.lastClipCheck = new Date().toISOString();
+    console.log(xboxAccount);
+
+    const clips = await this.fetchClipsFromXRU(gamertag);
+    console.log('fetched new clips for', gamertag);
+
+    const dateCutOff = new Date(
+      new Date().setDate(new Date().getDate() - this.daysOfHistory),
+    );
+
+    const xboxClips: XboxClipEntity[] = [];
+    clips.data?.gameClips?.some(clip => {
+      const endStamp = new Date(clip.dateRecorded);
+      if (endStamp < dateCutOff) {
+        return true;
+      }
+      endStamp.setSeconds(endStamp.getSeconds() + clip.durationInSeconds);
+      const xboxClipEntity = new XboxClipEntity();
+      xboxClipEntity.gameClipId = clip.gameClipId;
+      xboxClipEntity.xboxAccount = xboxAccount;
+      xboxClipEntity.xuid = clip.xuid;
+      xboxClipEntity.scid = clip.scid;
+      xboxClipEntity.thumbnailUri = clip.thumbnails.pop().uri;
+      xboxClipEntity.dateRecordedRange = `[${
+        clip.dateRecorded
+      }, ${endStamp.toISOString()}]`;
+      xboxClips.push(xboxClipEntity);
+    });
+
+    await this.xboxClipRespository
+      .find({ where: { xboxAccount: gamertag } })
+      .then(oldClips => {
+        for (let i = 0; i < oldClips.length; i++) {
+          const oldClip = oldClips[i];
+          let match = false;
+          xboxClips.some(newClip => {
+            if (newClip.gameClipId === oldClip.gameClipId) {
+              match = true;
+              return true;
+            }
+          });
+          if (!match) {
+            this.xboxClipRespository.delete(oldClip.gameClipId);
           }
-        }),
-      )
-      .subscribe();
+        }
+        console.log('deleted old clips for', gamertag);
+      });
+
+    await getConnection().manager.save(xboxClips);
+    console.log('created new clips for', gamertag);
   }
 
-  fetchClipsFromXRU(
+  async fetchClipsFromXRU(
     gamertag?: string,
-  ): Observable<AxiosResponse<XboxGameClipsResponse>> {
+  ): Promise<AxiosResponse<XboxGameClipsResponse>> {
     const uri = `https://api.xboxrecord.us/gameclips/gamertag/${gamertag}/titleid/${this.titleId}`;
-    return this.httpService.get(uri);
+    return this.httpService.get(uri).toPromise();
   }
 
   clipCount(): Promise<number> {
@@ -90,21 +96,11 @@ export class XboxService {
     return this.xboxAccountRespository.find();
   }
 
-  async createMany(xboxClips: XboxClipEntity[]) {
-    const queryRunner = this.connection.createQueryRunner();
+  async updateClipsForAllAccounts() {
+    const accounts = await this.xboxAccountRespository.find();
 
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
-      for (let i = 0; i < xboxClips.length; i++) {
-        await queryRunner.manager.save(xboxClips[i]);
-      }
-      await queryRunner.commitTransaction();
-    } catch (err) {
-      console.log(err);
-      await queryRunner.rollbackTransaction();
-    } finally {
-      await queryRunner.release();
-    }
+    accounts.forEach(account => {
+      this.updateClipsForGamertag(account.gamertag);
+    });
   }
 }

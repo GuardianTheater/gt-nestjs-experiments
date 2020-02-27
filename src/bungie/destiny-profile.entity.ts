@@ -23,14 +23,14 @@ export class DestinyProfileEntity {
   @Column()
   displayName: string;
 
-  @OneToOne(type => XboxAccountEntity, {
+  @OneToOne(() => XboxAccountEntity, {
     cascade: true,
   })
   @JoinColumn()
   xboxAccount?: XboxAccountEntity;
 
   @ManyToOne(
-    type => BungieProfileEntity,
+    () => BungieProfileEntity,
     profile => profile.profiles,
     {
       cascade: true,
@@ -40,7 +40,7 @@ export class DestinyProfileEntity {
   bnetProfile?: BungieProfileEntity;
 
   @OneToMany(
-    type => DestinyCharacterEntity,
+    () => DestinyCharacterEntity,
     character => character.profile,
     {
       cascade: true,
@@ -49,7 +49,7 @@ export class DestinyProfileEntity {
   characters?: DestinyCharacterEntity[];
 
   @OneToMany(
-    type => PgcrEntryEntity,
+    () => PgcrEntryEntity,
     entry => entry.profile,
   )
   entries?: PgcrEntryEntity[];
