@@ -1,4 +1,11 @@
-import { Entity, PrimaryColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
 import { MixerChannelEntity } from './mixer-channel.entity';
 import { MixerVodEntity } from './mixer-vod.entity';
 
@@ -23,6 +30,9 @@ export class MixerRecordingEntity {
     () => MixerChannelEntity,
     channel => channel.recordings,
   )
+  @JoinColumn({
+    name: 'channel',
+  })
   channel: MixerChannelEntity;
 
   @OneToMany(

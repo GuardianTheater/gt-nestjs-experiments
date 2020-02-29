@@ -1,11 +1,9 @@
 import { Injectable, HttpService } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
 import { AxiosResponse } from 'axios';
 import { XboxGameClipsResponse } from './xbox.types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { XboxClipEntity } from './xbox-clip.entity';
-import { Repository, Connection, getConnection, getRepository } from 'typeorm';
+import { Repository, Connection, getConnection } from 'typeorm';
 import { XboxAccountEntity } from './xbox-account.entity';
 
 @Injectable()
@@ -26,7 +24,6 @@ export class XboxService {
   async updateClipsForGamertag(gamertag: string) {
     const xboxAccount = await this.xboxAccountRespository.findOne(gamertag);
     xboxAccount.lastClipCheck = new Date().toISOString();
-    console.log(xboxAccount);
 
     const clips = await this.fetchClipsFromXRU(gamertag);
     console.log('fetched new clips for', gamertag);

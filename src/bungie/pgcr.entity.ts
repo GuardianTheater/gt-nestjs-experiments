@@ -16,9 +16,6 @@ export class PgcrEntity {
   @OneToMany(
     () => PgcrEntryEntity,
     entry => entry.instance,
-    {
-      cascade: true,
-    },
   )
   entries: PgcrEntryEntity[];
 }

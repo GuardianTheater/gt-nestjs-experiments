@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Column } from 'typeorm';
+import { Entity, ManyToOne, Column, JoinColumn } from 'typeorm';
 import { PgcrEntity } from './pgcr.entity';
 import { DestinyProfileEntity } from './destiny-profile.entity';
 
@@ -8,10 +8,12 @@ export class PgcrEntryEntity {
     () => DestinyProfileEntity,
     profile => profile.entries,
     {
-      cascade: true,
       primary: true,
     },
   )
+  @JoinColumn({
+    name: 'profile',
+  })
   profile: DestinyProfileEntity;
 
   @ManyToOne(
@@ -19,9 +21,11 @@ export class PgcrEntryEntity {
     pgcr => pgcr.entries,
     {
       primary: true,
-      eager: true,
     },
   )
+  @JoinColumn({
+    name: 'instance',
+  })
   instance: PgcrEntity;
 
   @Column('tstzrange')

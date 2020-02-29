@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { XboxAccountEntity } from './xbox-account.entity';
 
 @Entity()
@@ -17,9 +17,9 @@ export class XboxClipEntity {
     xboxAccount => xboxAccount.clips,
     {
       eager: true,
-      cascade: true,
     },
   )
+  @JoinColumn({ name: 'xboxAccount' })
   xboxAccount: XboxAccountEntity;
 
   @Column('tstzrange')

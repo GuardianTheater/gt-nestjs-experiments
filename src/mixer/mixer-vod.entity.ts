@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { MixerRecordingEntity } from './mixer-recording.entity';
 
 @Entity()
@@ -16,6 +16,7 @@ export class MixerVodEntity {
     () => MixerRecordingEntity,
     recording => recording.vods,
   )
+  @JoinColumn({ name: 'recording' })
   recording: MixerRecordingEntity;
 
   @Column({

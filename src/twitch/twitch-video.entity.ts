@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, ManyToOne, Column } from 'typeorm';
+import { Entity, PrimaryColumn, ManyToOne, Column, JoinColumn } from 'typeorm';
 import { TwitchAccountEntity } from './twitch-account.entity';
 
 @Entity()
@@ -10,6 +10,9 @@ export class TwitchVideoEntity {
     () => TwitchAccountEntity,
     account => account.videos,
   )
+  @JoinColumn({
+    name: 'user',
+  })
   user: TwitchAccountEntity;
 
   @Column('tstzrange')

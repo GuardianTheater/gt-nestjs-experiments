@@ -1,56 +1,46 @@
-import {
-  Entity,
-  PrimaryColumn,
-  Column,
-  OneToMany,
-  ManyToOne,
-  OneToOne,
-  JoinColumn,
-} from 'typeorm';
-import { DestinyCharacterEntity } from './destiny-character.entity';
-import { BungieProfileEntity } from './bungie-profile.entity';
+import { Entity, OneToOne, JoinColumn, Column } from 'typeorm';
 import { XboxAccountEntity } from 'src/xbox/xbox-account.entity';
-import { PgcrEntryEntity } from './pgcr-entry.entity';
+import { TwitchAccountEntity } from 'src/twitch/twitch-account.entity';
+import { MixerAccountEntity } from 'src/mixer/mixer-account.entity';
+import { DestinyProfileBaseEntity } from './destiny-profile-base.entity';
 
 @Entity()
-export class DestinyProfileEntity {
-  @PrimaryColumn()
-  membershipId: string;
-
-  @Column()
-  membershipType: number;
-
-  @Column()
-  displayName: string;
-
+export class DestinyProfileEntity extends DestinyProfileBaseEntity {
   @OneToOne(() => XboxAccountEntity, {
-    cascade: true,
+    nullable: true,
   })
-  @JoinColumn()
-  xboxAccount?: XboxAccountEntity;
+  @JoinColumn({
+    name: 'xboxNameMatch',
+  })
+  xboxNameMatch?: XboxAccountEntity;
 
-  @ManyToOne(
-    () => BungieProfileEntity,
-    profile => profile.profiles,
-    {
-      cascade: true,
-      nullable: true,
-    },
-  )
-  bnetProfile?: BungieProfileEntity;
+  @Column({
+    type: 'timestamptz',
+    nullable: true,
+  })
+  xboxNameMatchChecked?: string;
 
-  @OneToMany(
-    () => DestinyCharacterEntity,
-    character => character.profile,
-    {
-      cascade: true,
-    },
-  )
-  characters?: DestinyCharacterEntity[];
+  @OneToOne(() => TwitchAccountEntity, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'twitchNameMatch' })
+  twitchNameMatch?: TwitchAccountEntity;
 
-  @OneToMany(
-    () => PgcrEntryEntity,
-    entry => entry.profile,
-  )
-  entries?: PgcrEntryEntity[];
+  @Column({
+    type: 'timestamptz',
+    nullable: true,
+  })
+  twitchNameMatchChecked?: string;
+
+  @OneToOne(() => MixerAccountEntity, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'mixerNameMatch' })
+  mixerNameMatch?: MixerAccountEntity;
+
+  @Column({
+    type: 'timestamptz',
+    nullable: true,
+  })
+  mixerNameMatchChecked?: string;
 }

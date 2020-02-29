@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, OneToOne } from 'typeorm';
+import { Entity, PrimaryColumn, Column, OneToOne, JoinColumn } from 'typeorm';
 import { MixerChannelEntity } from './mixer-channel.entity';
 
 @Entity()
@@ -9,9 +9,9 @@ export class MixerAccountEntity {
   @Column()
   username: string;
 
-  @OneToOne(
-    () => MixerChannelEntity,
-    channel => channel.user,
-  )
+  @OneToOne(() => MixerChannelEntity)
+  @JoinColumn({
+    name: 'channel',
+  })
   channel: MixerChannelEntity;
 }
